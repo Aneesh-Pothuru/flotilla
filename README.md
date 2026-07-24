@@ -29,6 +29,8 @@ The committed [demo dashboard](docs/demo/index.html) is regenerated on every
 demo. `flotilla revive T-01 --ledger reports/flotilla.sqlite --reason "new
 evidence"` records a reversible challenge without erasing the original kill.
 
+![FLOTILLA five-thesis portfolio dashboard](docs/assets/demo.jpg)
+
 ## Commands
 
 ```bash
@@ -67,4 +69,3 @@ The vendored [loopkit schema](schemas/loopkit.schema.json) defines the portable
 run, trace-event, score, and verdict envelope. The complete source brief is in
 [docs/BRIEF.md](docs/BRIEF.md). See [LIMITS.md](LIMITS.md) for measurements
 that are not yet established.
-
