@@ -1,0 +1,183 @@
+{
+  "schema_version": "flotilla.demo.v1",
+  "code_commit": "bundled-paired-measurements-v1",
+  "portfolio_budget": 12,
+  "theses": [
+    {
+      "id": "T-01",
+      "title": "Feature selection beats regularization at small n",
+      "prediction": "Selected features improve paired holdout accuracy by at least 1 percentage point.",
+      "kill_predicate": "ci_lower < 0.01",
+      "budget_cap": 4,
+      "decision_deadline": "2026-07-25T17:00:00Z",
+      "limitations": [
+        "The fixture covers four small tabular splits only.",
+        "Alternative selectors and tuned regularization remain untested."
+      ],
+      "nodes": [
+        {
+          "id": "falsifier",
+          "kind": "falsifier",
+          "cost": 1,
+          "params": {
+            "seed": 101,
+            "control": [0.740, 0.750, 0.730, 0.745],
+            "treatment": [0.742, 0.751, 0.731, 0.746]
+          }
+        },
+        {
+          "id": "replicate",
+          "kind": "replicate",
+          "cost": 2,
+          "depends_on": ["falsifier"],
+          "params": {
+            "seed": 201,
+            "control": [0.735, 0.741, 0.746, 0.739],
+            "treatment": [0.737, 0.742, 0.745, 0.740]
+          }
+        }
+      ]
+    },
+    {
+      "id": "T-02",
+      "title": "Augmentation helps below one thousand samples",
+      "prediction": "A registered augmentation improves paired accuracy by at least 2 percentage points.",
+      "kill_predicate": "ci_lower < 0.02",
+      "budget_cap": 4,
+      "decision_deadline": "2026-07-25T17:00:00Z",
+      "limitations": [
+        "Only one augmentation family is represented.",
+        "Results above one thousand samples are outside this falsifier."
+      ],
+      "nodes": [
+        {
+          "id": "falsifier",
+          "kind": "falsifier",
+          "cost": 1,
+          "params": {
+            "seed": 102,
+            "control": [0.610, 0.600, 0.620, 0.590],
+            "treatment": [0.680, 0.670, 0.690, 0.660]
+          }
+        },
+        {
+          "id": "ablation",
+          "kind": "ablation",
+          "cost": 2,
+          "depends_on": ["falsifier"],
+          "params": {
+            "seed": 202,
+            "control": [0.625, 0.615, 0.605, 0.620],
+            "treatment": [0.677, 0.669, 0.663, 0.672]
+          }
+        }
+      ]
+    },
+    {
+      "id": "T-03",
+      "title": "Aggressive regularization improves noisy labels",
+      "prediction": "Aggressive regularization improves paired accuracy by at least 1 percentage point.",
+      "kill_predicate": "ci_lower < 0.01",
+      "budget_cap": 4,
+      "decision_deadline": "2026-07-25T17:00:00Z",
+      "limitations": [
+        "Noise is synthetic and class-symmetric.",
+        "The regularization grid has only one aggressive setting."
+      ],
+      "nodes": [
+        {
+          "id": "falsifier",
+          "kind": "falsifier",
+          "cost": 1,
+          "params": {
+            "seed": 103,
+            "control": [0.710, 0.700, 0.720, 0.705],
+            "treatment": [0.680, 0.675, 0.690, 0.670]
+          }
+        },
+        {
+          "id": "confound",
+          "kind": "confound",
+          "cost": 2,
+          "depends_on": ["falsifier"],
+          "params": {
+            "seed": 203,
+            "control": [0.700, 0.710, 0.705, 0.715],
+            "treatment": [0.681, 0.684, 0.682, 0.686]
+          }
+        }
+      ]
+    },
+    {
+      "id": "T-04",
+      "title": "Temperature scaling improves calibration",
+      "prediction": "Temperature scaling improves the registered calibration score by at least 0.5 points.",
+      "kill_predicate": "ci_lower < 0.005",
+      "budget_cap": 4,
+      "decision_deadline": "2026-07-25T17:00:00Z",
+      "limitations": [
+        "The fixture uses one shift family.",
+        "Accuracy preservation is tracked but not part of the kill predicate."
+      ],
+      "nodes": [
+        {
+          "id": "falsifier",
+          "kind": "falsifier",
+          "cost": 1,
+          "params": {
+            "seed": 104,
+            "control": [0.640, 0.650, 0.645, 0.642],
+            "treatment": [0.669, 0.681, 0.676, 0.673]
+          }
+        },
+        {
+          "id": "replicate",
+          "kind": "replicate",
+          "cost": 2,
+          "depends_on": ["falsifier"],
+          "params": {
+            "seed": 204,
+            "control": [0.638, 0.647, 0.651, 0.643],
+            "treatment": [0.664, 0.674, 0.678, 0.670]
+          }
+        }
+      ]
+    },
+    {
+      "id": "T-05",
+      "title": "Bagging stabilizes shallow trees",
+      "prediction": "Bagging improves paired accuracy by at least 1.5 percentage points.",
+      "kill_predicate": "ci_lower < 0.015",
+      "budget_cap": 4,
+      "decision_deadline": "2026-07-25T17:00:00Z",
+      "limitations": [
+        "Only shallow trees and four registered splits are tested.",
+        "Inference cost is not included in this falsifier."
+      ],
+      "nodes": [
+        {
+          "id": "falsifier",
+          "kind": "falsifier",
+          "cost": 1,
+          "params": {
+            "seed": 105,
+            "control": [0.690, 0.700, 0.680, 0.695],
+            "treatment": [0.731, 0.742, 0.719, 0.736]
+          }
+        },
+        {
+          "id": "replicate",
+          "kind": "replicate",
+          "cost": 2,
+          "depends_on": ["falsifier"],
+          "params": {
+            "seed": 205,
+            "control": [0.688, 0.697, 0.691, 0.699],
+            "treatment": [0.726, 0.738, 0.732, 0.741]
+          }
+        }
+      ]
+    }
+  ]
+}
+

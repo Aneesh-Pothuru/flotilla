@@ -1,0 +1,11 @@
+{
+  "remaining": 1.0,
+  "runs": 8,
+  "spent": 11.0,
+  "statuses": {
+    "KILLED": 2,
+    "SURVIVED": 3
+  },
+  "theses": 5,
+  "undetermined_decisions": 0
+}

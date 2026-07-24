@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>FLOTILLA — five-thesis demo</title>
+<style>
+:root{--ink:#172033;--muted:#62708a;--paper:#fff;--bg:#f3f6fb;--line:#dce4f0}
+*{box-sizing:border-box} body{margin:0;background:var(--bg);color:var(--ink);
+font:15px/1.5 ui-sans-serif,system-ui} main{max-width:1100px;margin:auto;padding:40px 22px}
+h1{font-size:42px;margin:0} .eyebrow{color:#5263d9;font-weight:700;letter-spacing:.12em}
+.lede{font-size:19px;color:var(--muted);max-width:720px}
+.metrics{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin:28px 0}
+.card{background:var(--paper);border:1px solid var(--line);border-radius:14px;padding:20px}
+.metric strong{display:block;font-size:30px} .metric span{color:var(--muted)}
+table{width:100%;border-collapse:collapse} th,td{text-align:left;padding:11px;
+border-bottom:1px solid var(--line);vertical-align:top} th{color:var(--muted)}
+.pill{padding:3px 9px;border-radius:99px;background:#e9edf5;font-weight:700}
+.alive{background:#dff7e9;color:#17633c} .dead{background:#ffe2e2;color:#8b2828}
+.revived{background:#fff0c9} .unknown{background:#ece8ff;color:#493a96}
+code{font-size:13px} .note{color:var(--muted)} @media(max-width:700px){
+.metrics{grid-template-columns:1fr} .scroll{overflow:auto}}
+</style>
+</head>
+<body><main>
+<p class="eyebrow">FLOTILLA · JOURNEY 0</p>
+<h1>Five theses. One budget.</h1>
+<p class="lede">A deterministic, keyless portfolio replay. Fixture-derived
+measurements exercise the decision machinery; they are not scientific claims.</p>
+<section class="metrics">
+  <div class="card metric"><strong>5</strong><span>theses tested</span></div>
+  <div class="card metric"><strong>11.0</strong><span>budget units spent</span></div>
+  <div class="card metric"><strong>0</strong><span>undetermined decisions</span></div>
+</section>
+<section class="card scroll"><h2>Portfolio</h2><table>
+<thead><tr><th>ID</th><th>Thesis</th><th>Status</th><th>Spend</th><th>Kill predicate</th></tr></thead>
+<tbody><tr><td>T-01</td><td>Feature selection beats regularization at small n</td><td><span class='pill dead'>KILLED</span></td><td>1.0</td><td><code>ci_lower &lt; 0.01</code></td></tr>
+<tr><td>T-02</td><td>Augmentation helps below one thousand samples</td><td><span class='pill alive'>SURVIVED</span></td><td>3.0</td><td><code>ci_lower &lt; 0.02</code></td></tr>
+<tr><td>T-03</td><td>Aggressive regularization improves noisy labels</td><td><span class='pill dead'>KILLED</span></td><td>1.0</td><td><code>ci_lower &lt; 0.01</code></td></tr>
+<tr><td>T-04</td><td>Temperature scaling improves calibration</td><td><span class='pill alive'>SURVIVED</span></td><td>3.0</td><td><code>ci_lower &lt; 0.005</code></td></tr>
+<tr><td>T-05</td><td>Bagging stabilizes shallow trees</td><td><span class='pill alive'>SURVIVED</span></td><td>3.0</td><td><code>ci_lower &lt; 0.015</code></td></tr></tbody></table></section>
+<section class="card scroll" style="margin-top:18px"><h2>Decision timeline</h2><table>
+<thead><tr><th>#</th><th>Logical time</th><th>Event</th><th>Scope</th></tr></thead>
+<tbody><tr><td>1</td><td>2026-07-24T09:01:00Z</td><td>THESIS_REGISTERED</td><td>T-01</td></tr>
+<tr><td>2</td><td>2026-07-24T09:02:00Z</td><td>PLAN_PROPOSED</td><td>T-01</td></tr>
+<tr><td>3</td><td>2026-07-24T09:03:00Z</td><td>PLAN_APPROVED</td><td>T-01</td></tr>
+<tr><td>4</td><td>2026-07-24T09:04:00Z</td><td>THESIS_REGISTERED</td><td>T-02</td></tr>
+<tr><td>5</td><td>2026-07-24T09:05:00Z</td><td>PLAN_PROPOSED</td><td>T-02</td></tr>
+<tr><td>6</td><td>2026-07-24T09:06:00Z</td><td>PLAN_APPROVED</td><td>T-02</td></tr>
+<tr><td>7</td><td>2026-07-24T09:07:00Z</td><td>THESIS_REGISTERED</td><td>T-03</td></tr>
+<tr><td>8</td><td>2026-07-24T09:08:00Z</td><td>PLAN_PROPOSED</td><td>T-03</td></tr>
+<tr><td>9</td><td>2026-07-24T09:09:00Z</td><td>PLAN_APPROVED</td><td>T-03</td></tr>
+<tr><td>10</td><td>2026-07-24T09:10:00Z</td><td>THESIS_REGISTERED</td><td>T-04</td></tr>
+<tr><td>11</td><td>2026-07-24T09:11:00Z</td><td>PLAN_PROPOSED</td><td>T-04</td></tr>
+<tr><td>12</td><td>2026-07-24T09:12:00Z</td><td>PLAN_APPROVED</td><td>T-04</td></tr>
+<tr><td>13</td><td>2026-07-24T09:13:00Z</td><td>THESIS_REGISTERED</td><td>T-05</td></tr>
+<tr><td>14</td><td>2026-07-24T09:14:00Z</td><td>PLAN_PROPOSED</td><td>T-05</td></tr>
+<tr><td>15</td><td>2026-07-24T09:15:00Z</td><td>PLAN_APPROVED</td><td>T-05</td></tr>
+<tr><td>16</td><td>2026-07-24T09:16:00Z</td><td>BUDGET_SPENT</td><td>T-01</td></tr>
+<tr><td>17</td><td>2026-07-24T09:17:00Z</td><td>RUN_COMPLETED</td><td>T-01</td></tr>
+<tr><td>18</td><td>2026-07-24T09:18:00Z</td><td>DECISION</td><td>T-01</td></tr>
+<tr><td>19</td><td>2026-07-24T09:19:00Z</td><td>DECISION</td><td>T-01</td></tr>
+<tr><td>20</td><td>2026-07-24T09:20:00Z</td><td>BUDGET_RELEASED</td><td>T-01</td></tr>
+<tr><td>21</td><td>2026-07-24T09:21:00Z</td><td>BUDGET_SPENT</td><td>T-02</td></tr>
+<tr><td>22</td><td>2026-07-24T09:22:00Z</td><td>RUN_COMPLETED</td><td>T-02</td></tr>
+<tr><td>23</td><td>2026-07-24T09:23:00Z</td><td>DECISION</td><td>T-02</td></tr>
+<tr><td>24</td><td>2026-07-24T09:24:00Z</td><td>BUDGET_SPENT</td><td>T-03</td></tr>
+<tr><td>25</td><td>2026-07-24T09:25:00Z</td><td>RUN_COMPLETED</td><td>T-03</td></tr>
+<tr><td>26</td><td>2026-07-24T09:26:00Z</td><td>DECISION</td><td>T-03</td></tr>
+<tr><td>27</td><td>2026-07-24T09:27:00Z</td><td>DECISION</td><td>T-03</td></tr>
+<tr><td>28</td><td>2026-07-24T09:28:00Z</td><td>BUDGET_RELEASED</td><td>T-03</td></tr>
+<tr><td>29</td><td>2026-07-24T09:29:00Z</td><td>BUDGET_SPENT</td><td>T-04</td></tr>
+<tr><td>30</td><td>2026-07-24T09:30:00Z</td><td>RUN_COMPLETED</td><td>T-04</td></tr>
+<tr><td>31</td><td>2026-07-24T09:31:00Z</td><td>DECISION</td><td>T-04</td></tr>
+<tr><td>32</td><td>2026-07-24T09:32:00Z</td><td>BUDGET_SPENT</td><td>T-05</td></tr>
+<tr><td>33</td><td>2026-07-24T09:33:00Z</td><td>RUN_COMPLETED</td><td>T-05</td></tr>
+<tr><td>34</td><td>2026-07-24T09:34:00Z</td><td>DECISION</td><td>T-05</td></tr>
+<tr><td>35</td><td>2026-07-24T09:35:00Z</td><td>BUDGET_SPENT</td><td>T-02</td></tr>
+<tr><td>36</td><td>2026-07-24T09:36:00Z</td><td>RUN_COMPLETED</td><td>T-02</td></tr>
+<tr><td>37</td><td>2026-07-24T09:37:00Z</td><td>BUDGET_SPENT</td><td>T-04</td></tr>
+<tr><td>38</td><td>2026-07-24T09:38:00Z</td><td>RUN_COMPLETED</td><td>T-04</td></tr>
+<tr><td>39</td><td>2026-07-24T09:39:00Z</td><td>BUDGET_SPENT</td><td>T-05</td></tr>
+<tr><td>40</td><td>2026-07-24T09:40:00Z</td><td>RUN_COMPLETED</td><td>T-05</td></tr>
+<tr><td>41</td><td>2026-07-24T09:41:00Z</td><td>DECISION</td><td>T-02</td></tr>
+<tr><td>42</td><td>2026-07-24T09:42:00Z</td><td>DECISION</td><td>T-04</td></tr>
+<tr><td>43</td><td>2026-07-24T09:43:00Z</td><td>DECISION</td><td>T-05</td></tr></tbody></table></section>
+<p class="note">Generated by <code>make demo</code>. Inspect SQLite and the
+Markdown kill reports for complete evidence and lineage.</p>
+</main></body></html>
