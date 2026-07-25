@@ -786,6 +786,26 @@ def render_dashboard(ledger: Ledger, output: str | Path) -> Path:
         "</tr>"
         for row in thesis_rows
     )
+    thesis_cards = "\n".join(
+        "<article class='thesis-card'>"
+        "<div class='thesis-top'>"
+        f"<span class='thesis-id'>{html.escape(str(row['id']))}</span>"
+        f"<span class='pill {colors.get(str(row['status']), '')}'>"
+        f"{html.escape(str(row['status']))}</span></div>"
+        f"<h3>{html.escape(str(row['title']))}</h3>"
+        "<div class='thesis-meta'>"
+        f"<span>SPEND <strong>{float(row['spent']):.1f}</strong></span>"
+        f"<span>PREDICATE <code>{html.escape(str(row['kill_predicate']))}</code></span>"
+        "</div></article>"
+        for row in thesis_rows
+    )
+    allocation_segments = "".join(
+        "<span "
+        f"class='{colors.get(str(row['status']), '')}' "
+        f"style='width:{(float(row['spent']) / total_spend * 100) if total_spend else 0:.2f}%' "
+        f"title='{html.escape(str(row['id']))}: {float(row['spent']):.1f} units'></span>"
+        for row in thesis_rows
+    )
     event_html = "\n".join(
         "<tr>"
         f"<td>{row['sequence']}</td><td>{html.escape(str(row['logical_time']))}</td>"
@@ -801,41 +821,107 @@ def render_dashboard(ledger: Ledger, output: str | Path) -> Path:
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>FLOTILLA — five-thesis demo</title>
 <style>
-:root{{--ink:#172033;--muted:#62708a;--paper:#fff;--bg:#f3f6fb;--line:#dce4f0}}
-*{{box-sizing:border-box}} body{{margin:0;background:var(--bg);color:var(--ink);
-font:15px/1.5 ui-sans-serif,system-ui}} main{{max-width:1100px;margin:auto;padding:40px 22px}}
-h1{{font-size:42px;margin:0}} .eyebrow{{color:#5263d9;font-weight:700;letter-spacing:.12em}}
-.lede{{font-size:19px;color:var(--muted);max-width:720px}}
-.metrics{{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin:28px 0}}
-.card{{background:var(--paper);border:1px solid var(--line);border-radius:14px;padding:20px}}
-.metric strong{{display:block;font-size:30px}} .metric span{{color:var(--muted)}}
-table{{width:100%;border-collapse:collapse}} th,td{{text-align:left;padding:11px;
-border-bottom:1px solid var(--line);vertical-align:top}} th{{color:var(--muted)}}
-.pill{{padding:3px 9px;border-radius:99px;background:#e9edf5;font-weight:700}}
-.alive{{background:#dff7e9;color:#17633c}} .dead{{background:#ffe2e2;color:#8b2828}}
-.revived{{background:#fff0c9}} .unknown{{background:#ece8ff;color:#493a96}}
-code{{font-size:13px}} .note{{color:var(--muted)}} @media(max-width:700px){{
-.metrics{{grid-template-columns:1fr}} .scroll{{overflow:auto}}}}
+:root{{--bg:#080b12;--panel:#10151f;--panel-2:#151b27;--line:#28303d;
+--text:#f8f9f5;--muted:#929ba8;--faint:#616a78;--mint:#7cf3b4;--coral:#ff806f;
+--violet:#b29bff;--amber:#f0c46b;--cyan:#6ed9e5;--shadow:0 26px 72px rgba(0,0,0,.4)}}
+*{{box-sizing:border-box}}html{{scroll-behavior:smooth}}body{{margin:0;color:var(--text);
+background:radial-gradient(circle at 85% 0,rgba(255,128,111,.12),transparent 31rem),
+radial-gradient(circle at 12% 22%,rgba(124,243,180,.08),transparent 26rem),var(--bg);
+font:14px/1.55 Inter,ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}}
+.topbar{{height:58px;border-bottom:1px solid var(--line);padding:0 26px;display:flex;
+align-items:center;justify-content:space-between;position:sticky;top:0;z-index:10;
+background:rgba(8,11,18,.86);backdrop-filter:blur(16px)}}.brand{{display:flex;align-items:center;
+gap:11px;font-weight:780}}.brand-mark{{width:27px;height:27px;border-radius:8px;
+display:grid;place-items:center;background:linear-gradient(145deg,var(--coral),#ef5c81);
+color:#15090b;box-shadow:0 0 22px rgba(255,128,111,.22)}}.topmeta{{display:flex;gap:14px;
+align-items:center;color:var(--muted);font:10px ui-monospace,monospace;text-transform:uppercase;
+letter-spacing:.11em}}.ready{{display:flex;align-items:center;gap:7px;color:#d4f8e4}}
+.ready:before{{content:"";width:6px;height:6px;border-radius:50%;background:var(--mint);
+box-shadow:0 0 12px var(--mint)}}main{{max-width:1380px;margin:auto;padding:30px 26px 64px}}
+.hero{{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(340px,.75fr);
+border:1px solid var(--line);border-radius:18px;overflow:hidden;background:linear-gradient(145deg,
+rgba(22,28,40,.98),rgba(11,15,23,.98));box-shadow:var(--shadow)}}.hero-copy{{padding:36px 38px}}
+.eyebrow,.section-label{{margin:0 0 13px;color:var(--coral);font:750 10px ui-monospace,
+monospace;letter-spacing:.16em;text-transform:uppercase}}.eyebrow:before{{content:"";
+display:inline-block;width:24px;height:1px;background:currentColor;vertical-align:middle;
+margin-right:9px}}h1{{font-size:clamp(38px,5vw,66px);line-height:.98;letter-spacing:-.05em;
+margin:0}}.lede{{font-size:17px;color:#b7bec8;max-width:720px;margin:20px 0 0}}
+.budget-panel{{border-left:1px solid var(--line);padding:28px;background:rgba(5,8,13,.25)}}
+.budget-total{{display:flex;align-items:end;justify-content:space-between;gap:20px}}
+.budget-total strong{{font-size:42px;line-height:1;letter-spacing:-.04em}}.budget-total span{{
+color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.1em}}.allocation{{
+height:12px;display:flex;overflow:hidden;border-radius:99px;background:#080b12;margin:21px 0 13px;
+border:1px solid var(--line)}}.allocation span{{height:100%;min-width:3px;border-right:2px solid #0e121b}}
+.allocation .alive{{background:var(--mint)}}.allocation .dead{{background:var(--coral)}}
+.allocation .revived{{background:var(--violet)}}.allocation .unknown{{background:var(--amber)}}
+.legend{{display:flex;gap:14px;flex-wrap:wrap;color:var(--muted);font-size:10px}}.legend span:before{{
+content:"";display:inline-block;width:7px;height:7px;border-radius:2px;background:currentColor;
+margin-right:6px}}.legend .survivor{{color:var(--mint)}}.legend .killed{{color:var(--coral)}}
+.metrics{{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin:17px 0}}
+.metric,.panel,.thesis-card{{background:linear-gradient(180deg,rgba(17,22,32,.97),
+rgba(11,15,23,.98));border:1px solid var(--line);border-radius:14px}}.metric{{padding:17px}}
+.metric strong{{display:block;font-size:27px;line-height:1.15}}.metric span{{display:block;
+color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:.1em;margin-top:7px}}
+.section-head{{display:flex;justify-content:space-between;align-items:end;gap:20px;margin:28px 0 12px}}
+.section-head h2{{margin:0;font-size:22px}}.section-head>p{{margin:0;color:var(--muted)}}
+.thesis-grid{{display:grid;grid-template-columns:repeat(5,minmax(190px,1fr));gap:10px}}
+.thesis-card{{padding:15px;min-height:178px;display:flex;flex-direction:column}}.thesis-top{{
+display:flex;align-items:center;justify-content:space-between;gap:8px}}.thesis-id{{color:var(--faint);
+font:700 10px ui-monospace,monospace;letter-spacing:.1em}}.thesis-card h3{{font-size:15px;
+line-height:1.35;margin:19px 0;letter-spacing:-.01em}}.thesis-meta{{margin-top:auto;display:grid;
+gap:8px;color:var(--faint);font:650 9px ui-monospace,monospace;letter-spacing:.08em}}
+.thesis-meta span{{display:grid;grid-template-columns:58px minmax(0,1fr);gap:6px}}.thesis-meta strong,
+.thesis-meta code{{color:#c7ced7;font-size:10px;overflow-wrap:anywhere}}.pill{{display:inline-flex;
+padding:4px 7px;border-radius:999px;font:750 9px ui-monospace,monospace;letter-spacing:.06em;
+border:1px solid transparent}}.alive{{background:#163a2b;color:var(--mint);border-color:#24543f}}
+.dead{{background:#3e1d1b;color:#ff9d90;border-color:#60302c}}.revived{{background:#2c2548;
+color:#cabbff;border-color:#493d75}}.unknown{{background:#392f17;color:var(--amber);
+border-color:#5e4d25}}.panel{{overflow:hidden;margin-top:14px}}.panel-head{{display:flex;
+align-items:center;justify-content:space-between;padding:18px 20px;border-bottom:1px solid var(--line)}}
+.panel-head h2{{margin:0;font-size:20px}}.panel-head span{{color:var(--muted);font-size:11px}}
+.scroll{{overflow:auto;max-height:520px}}table{{width:100%;border-collapse:collapse;font-size:12px}}
+th,td{{text-align:left;padding:11px 13px;border-bottom:1px solid var(--line);vertical-align:top}}
+th{{position:sticky;top:0;background:#121722;color:var(--faint);font:700 9px
+ui-monospace,monospace;text-transform:uppercase;letter-spacing:.1em}}tbody tr:hover{{
+background:rgba(124,243,180,.03)}}code{{font:11px ui-monospace,monospace}}.note{{display:flex;
+justify-content:space-between;gap:20px;color:var(--muted);font-size:12px;border-top:1px solid
+var(--line);padding-top:17px;margin-top:22px}}@media(max-width:1120px){{.thesis-grid{{
+grid-template-columns:repeat(3,1fr)}}}}@media(max-width:900px){{.hero{{grid-template-columns:1fr}}
+.budget-panel{{border-left:0;border-top:1px solid var(--line)}}}}@media(max-width:700px){{
+.topbar{{padding:0 14px}}.topmeta>span:first-child{{display:none}}main{{padding:18px 14px 42px}}
+.hero-copy,.budget-panel{{padding:24px 20px}}.metrics{{grid-template-columns:1fr}}
+.thesis-grid{{grid-template-columns:1fr}}.section-head,.note{{align-items:start;flex-direction:column}}}}
 </style>
 </head>
-<body><main>
-<p class="eyebrow">FLOTILLA · JOURNEY 0</p>
-<h1>Five theses. One budget.</h1>
-<p class="lede">A deterministic, keyless portfolio replay. Fixture-derived
-measurements exercise the decision machinery; they are not scientific claims.</p>
+<body><header class="topbar"><div class="brand"><span class="brand-mark">F</span>
+FLOTILLA</div><div class="topmeta"><span>research portfolio / allocation desk</span>
+<span class="ready">decisions recorded</span></div></header><main>
+<section class="hero"><div class="hero-copy"><p class="eyebrow">Thesis portfolio · Journey 0</p>
+<h1>Five theses. One budget.</h1><p class="lede">The cheapest falsifiers run first.
+Kills require executable evidence and operator confirmation; every decision remains reversible.</p>
+</div><aside class="budget-panel"><p class="section-label">Capital allocation</p>
+<div class="budget-total"><strong>{total_spend:.1f}</strong><span>budget units deployed</span></div>
+<div class="allocation" aria-label="Budget allocation by thesis">{allocation_segments}</div>
+<div class="legend"><span class="survivor">survivor allocation</span>
+<span class="killed">stopped allocation</span></div></aside></section>
 <section class="metrics">
-  <div class="card metric"><strong>{len(thesis_rows)}</strong><span>theses tested</span></div>
-  <div class="card metric"><strong>{total_spend:.1f}</strong><span>budget units spent</span></div>
-  <div class="card metric"><strong>{undetermined}</strong><span>undetermined decisions</span></div>
+  <div class="metric"><strong>{len(thesis_rows)}</strong><span>theses under test</span></div>
+  <div class="metric"><strong>{len(decisions)}</strong><span>deterministic decisions</span></div>
+  <div class="metric"><strong>{undetermined}</strong><span>undetermined decisions</span></div>
 </section>
-<section class="card scroll"><h2>Portfolio</h2><table>
+<div class="section-head"><div><p class="section-label">Conviction board</p>
+<h2>Portfolio state</h2></div><p>Fixture evidence · not scientific validation</p></div>
+<section class="thesis-grid">{thesis_cards}</section>
+<section class="panel"><div class="panel-head"><h2>Decision register</h2>
+<span>predicate + spend + disposition</span></div><div class="scroll"><table>
 <thead><tr><th>ID</th><th>Thesis</th><th>Status</th><th>Spend</th><th>Kill predicate</th></tr></thead>
-<tbody>{thesis_html}</tbody></table></section>
-<section class="card scroll" style="margin-top:18px"><h2>Decision timeline</h2><table>
+<tbody>{thesis_html}</tbody></table></div></section>
+<section class="panel"><div class="panel-head"><h2>Decision timeline</h2>
+<span>append-only lineage</span></div><div class="scroll"><table>
 <thead><tr><th>#</th><th>Logical time</th><th>Event</th><th>Scope</th></tr></thead>
-<tbody>{event_html}</tbody></table></section>
-<p class="note">Generated by <code>make demo</code>. Inspect SQLite and the
-Markdown kill reports for complete evidence and lineage.</p>
+<tbody>{event_html}</tbody></table></div></section>
+<footer class="note"><span>Generated by <code>make demo</code>.</span>
+<span>SQLite and Markdown kill reports retain complete evidence and lineage.</span></footer>
 </main></body></html>
 """
     target = Path(output)
