@@ -25,7 +25,10 @@ def main() -> int:
     for path in sorted(ROOT.rglob("*")):
         if not path.is_file() or path.suffix not in TEXT_SUFFIXES:
             continue
-        if any(part in {".git", ".venv", "__pycache__", "reports"} for part in path.parts):
+        if any(
+            part in {".git", ".venv", ".wrangler", "__pycache__", "reports"}
+            for part in path.parts
+        ):
             continue
         text = path.read_text(encoding="utf-8")
         if not text.endswith("\n"):
