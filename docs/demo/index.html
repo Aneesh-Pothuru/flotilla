@@ -183,6 +183,20 @@ stops. Allocation reflects actual ledger spend, not initial caps.</p></aside></s
 <p>Temporary in-memory data only. Choose conditions, set the mandate, launch the
 falsifier fleet, step experiments, adjudicate stops, reallocate reserve, and inspect
 the lineage. Reset returns to the registered fixture.</p></div>
+<section class="live-bridge" aria-labelledby="live-bridge-title">
+<div><p class="section-kicker">Installed control plane</p>
+<h3 id="live-bridge-title">Inspect a real local workspace</h3>
+<p>The simulator below always stays in fixture mode. Start <code>flotilla serve</code>,
+then connect here for a read-only view of the persistent SQLite portfolio.</p></div>
+<form class="live-bridge-form" id="live-service-form" onsubmit="return false">
+<label for="live-endpoint">Service endpoint</label>
+<input id="live-endpoint" type="url" value="http://127.0.0.1:8765"
+spellcheck="false"><label for="live-token">Bearer token <span>optional on loopback</span></label>
+<input id="live-token" type="password" autocomplete="off">
+<button id="live-connect-button" type="button">Connect read-only</button>
+<output id="live-service-status" role="status" aria-live="polite">Fixture mode active</output>
+</form><div id="live-service-summary" class="live-service-summary" hidden></div>
+</section>
 <div class="simulator-grid"><form class="sim-controls" aria-label="Simulation controls"
 onsubmit="return false"><label for="scenario-select">Scenario</label>
 <select id="scenario-select"><option value="registered">Registered outcome</option>

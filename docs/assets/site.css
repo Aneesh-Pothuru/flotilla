@@ -856,6 +856,101 @@
   color: var(--stop);
 }
 
+.live-bridge {
+  display: grid;
+  grid-template-columns: minmax(220px, 0.8fr) minmax(360px, 1.2fr);
+  gap: 24px;
+  margin: 22px 0;
+  padding: 18px;
+  border: 1px solid var(--ink);
+  background: color-mix(in srgb, var(--paper-deep) 72%, transparent);
+}
+
+.live-bridge h3,
+.live-bridge p {
+  margin: 0 0 8px;
+}
+
+.live-bridge-form {
+  display: grid;
+  grid-template-columns: minmax(150px, 1fr) minmax(140px, 0.75fr) auto;
+  gap: 7px 10px;
+  align-items: end;
+}
+
+.live-bridge-form label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.live-bridge-form label span {
+  color: var(--ink-soft);
+  font-weight: 400;
+}
+
+.live-bridge-form input {
+  min-width: 0;
+  padding: 10px;
+  border: 1px solid var(--rule);
+  background: var(--paper);
+  color: var(--ink);
+}
+
+.live-bridge-form button {
+  grid-row: 1 / span 2;
+  grid-column: 3;
+  align-self: end;
+}
+
+#live-service-status {
+  grid-column: 1 / -1;
+  min-height: 18px;
+  color: var(--ink-soft);
+  font-size: 11px;
+}
+
+.live-service-summary {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr) minmax(180px, 1.2fr);
+  border-top: 1px solid var(--rule);
+}
+
+.live-service-summary[hidden] {
+  display: none;
+}
+
+.live-service-summary > div,
+.live-service-summary ul {
+  margin: 14px 0 0;
+  padding: 12px;
+  border-right: 1px dotted var(--rule);
+}
+
+.live-service-summary span {
+  display: block;
+  color: var(--ink-soft);
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.live-service-summary strong {
+  font-family: ui-monospace, monospace;
+}
+
+.live-service-summary ul {
+  border-right: 0;
+  list-style: none;
+}
+
+.live-service-summary li {
+  display: flex;
+  justify-content: space-between;
+}
+
 @media (max-width: 1120px) {
   .site-nav a:not(.nav-cta) {
     display: none;
@@ -863,8 +958,13 @@
 
   .home-hero,
   .home-flow,
-  .simulator-grid {
+  .simulator-grid,
+  .live-bridge {
     grid-template-columns: 1fr;
+  }
+
+  .live-service-summary {
+    grid-template-columns: repeat(2, 1fr);
   }
 
   .strategy-chart {
@@ -960,6 +1060,17 @@
     grid-template-columns: 1fr;
   }
 
+  .live-bridge-form,
+  .live-service-summary {
+    grid-template-columns: 1fr;
+  }
+
+  .live-bridge-form button,
+  #live-service-status {
+    grid-column: 1;
+    grid-row: auto;
+  }
+
   .control-group.secondary {
     grid-template-columns: 1fr;
   }
@@ -1005,4 +1116,3 @@
     transition-duration: 0.01ms !important;
   }
 }
-

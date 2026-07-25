@@ -68,6 +68,8 @@ class Ledger:
         self.connection = sqlite3.connect(self.path)
         self.connection.row_factory = sqlite3.Row
         self.connection.execute("PRAGMA foreign_keys = ON")
+        self.connection.execute("PRAGMA busy_timeout = 5000")
+        self.connection.execute("PRAGMA journal_mode = WAL")
         self._create_schema()
 
     def close(self) -> None:
@@ -143,6 +145,32 @@ class Ledger:
                 amount REAL NOT NULL,
                 remaining REAL NOT NULL
             );
+            CREATE TABLE IF NOT EXISTS portfolio_state (
+                id INTEGER PRIMARY KEY CHECK (id = 1),
+                total_budget REAL NOT NULL CHECK (total_budget > 0),
+                remaining REAL NOT NULL CHECK (remaining >= 0),
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            );
+            CREATE TABLE IF NOT EXISTS reallocations (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                source_thesis_id TEXT NOT NULL,
+                target_thesis_id TEXT NOT NULL,
+                amount REAL NOT NULL CHECK (amount > 0),
+                actor TEXT NOT NULL,
+                reason TEXT NOT NULL,
+                logical_time TEXT NOT NULL,
+                reversed_from INTEGER UNIQUE,
+                FOREIGN KEY (source_thesis_id) REFERENCES theses(id),
+                FOREIGN KEY (target_thesis_id) REFERENCES theses(id),
+                FOREIGN KEY (reversed_from) REFERENCES reallocations(id)
+            );
+            CREATE INDEX IF NOT EXISTS events_thesis_sequence
+              ON events(thesis_id, sequence);
+            CREATE INDEX IF NOT EXISTS runs_thesis_plan
+              ON runs(thesis_id, plan_version);
+            CREATE INDEX IF NOT EXISTS decisions_thesis_id
+              ON decisions(thesis_id, id);
             """
         )
         self.connection.commit()
@@ -392,6 +420,8 @@ class Ledger:
             "runs",
             "decisions",
             "budget_entries",
+            "portfolio_state",
+            "reallocations",
         }
         if table not in allowed:
             raise ValueError(table)
@@ -1164,6 +1194,20 @@ stops. Allocation reflects actual ledger spend, not initial caps.</p></aside></s
 <p>Temporary in-memory data only. Choose conditions, set the mandate, launch the
 falsifier fleet, step experiments, adjudicate stops, reallocate reserve, and inspect
 the lineage. Reset returns to the registered fixture.</p></div>
+<section class="live-bridge" aria-labelledby="live-bridge-title">
+<div><p class="section-kicker">Installed control plane</p>
+<h3 id="live-bridge-title">Inspect a real local workspace</h3>
+<p>The simulator below always stays in fixture mode. Start <code>flotilla serve</code>,
+then connect here for a read-only view of the persistent SQLite portfolio.</p></div>
+<form class="live-bridge-form" id="live-service-form" onsubmit="return false">
+<label for="live-endpoint">Service endpoint</label>
+<input id="live-endpoint" type="url" value="http://127.0.0.1:8765"
+spellcheck="false"><label for="live-token">Bearer token <span>optional on loopback</span></label>
+<input id="live-token" type="password" autocomplete="off">
+<button id="live-connect-button" type="button">Connect read-only</button>
+<output id="live-service-status" role="status" aria-live="polite">Fixture mode active</output>
+</form><div id="live-service-summary" class="live-service-summary" hidden></div>
+</section>
 <div class="simulator-grid"><form class="sim-controls" aria-label="Simulation controls"
 onsubmit="return false"><label for="scenario-select">Scenario</label>
 <select id="scenario-select"><option value="registered">Registered outcome</option>

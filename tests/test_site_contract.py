@@ -37,11 +37,14 @@ class ProductSiteContractTests(unittest.TestCase):
             "reset-button",
             "evidence-drawer",
             "interactive-lineage",
+            "live-endpoint",
+            "live-connect-button",
+            "live-service-summary",
         ):
             with self.subTest(required=required):
                 self.assertIn(required, page)
 
-    def test_browser_simulator_is_local_and_covers_all_verdict_paths(self) -> None:
+    def test_browser_simulator_is_local_first_and_covers_all_verdict_paths(self) -> None:
         script = (ROOT / "docs/assets/flotilla-demo.js").read_text(
             encoding="utf-8"
         )
@@ -55,7 +58,8 @@ class ProductSiteContractTests(unittest.TestCase):
         ):
             with self.subTest(required=required):
                 self.assertIn(required, script)
-        self.assertNotIn("fetch(", script)
+        self.assertIn('fetch(`${endpoint}/v1/portfolio`', script)
+        self.assertIn("Live read-only workspace connected", script)
         self.assertNotIn("localStorage", script)
 
     def test_allocator_checks_available_capital_before_mutating_earmarks(self) -> None:

@@ -33,10 +33,39 @@ The browser lab uses temporary in-memory state and never rewrites the registered
 ledger. It supports scenario and thesis selection, mandate controls,
 launch/step/reset, capital earmarking, stop confirmation, reviewer overturn,
 revival, evolving trajectory/allocation charts, an evidence drawer, and
-simulation lineage.
+simulation lineage. Its optional **Installed control plane** connector reads
+portfolio status from a local service without mixing live state into the
+fixture simulator.
 
 `flotilla revive T-01 --ledger reports/flotilla.sqlite --reason "new
 evidence"` records a reversible challenge without erasing the original kill.
+
+## Installed product
+
+The repository also ships a persistent local JSON service over the actual
+scheduler, safe predicate evaluator, paired-measurement executor, and SQLite
+lineage:
+
+```bash
+python -m venv .venv
+. .venv/bin/activate
+python -m pip install .
+flotilla serve --budget 12
+
+curl -sS http://127.0.0.1:8765/readyz
+curl -sS http://127.0.0.1:8765/v1/portfolio
+```
+
+Unlike the hosted fixture, service actions persist across process restarts.
+The API registers executable thesis/plan DAGs, requires approval, executes one
+node or the falsifier-first portfolio schedule, enforces dependencies and both
+budget levels, returns real scores, and records human confirm/overturn/revive
+decisions. Unspent cap can be reallocated and explicitly reversed.
+
+The service binds to `127.0.0.1` by default. A non-loopback bind requires a
+16+ character bearer token. See [the installed service guide](docs/SERVICE.md)
+for the complete API, exact-origin browser connection, Docker Compose, request
+limits, and error model.
 
 ## Commands
 
@@ -46,6 +75,9 @@ make test               # standard-library unittest suite
 make lint               # compile + repository hygiene checks
 make reproduce-demo     # rerun and save the machine-readable summary
 make reproduce-budget   # verify falsifier-first allocation from the ledger
+flotilla init --budget 12
+flotilla status
+flotilla serve --budget 12
 ```
 
 An unapproved plan raises an error and cannot dispatch. Kill confirmation is on
@@ -67,7 +99,10 @@ thesis + prediction + safe predicate
       local executor / notebook emitter
               │
               ▼
- SQLite lineage ── deterministic decision engine
+ SQLite lineage ── persistent HTTP control plane
+              │
+              ▼
+      deterministic decision engine
               │
       kill reports + static dashboard
 ```

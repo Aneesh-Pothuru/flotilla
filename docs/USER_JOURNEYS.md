@@ -1,8 +1,10 @@
 # FLOTILLA user journeys
 
-These journeys map product roles to the static landing page and deterministic
-browser simulator. The simulator uses temporary in-memory state; the registered
-SQLite lineage and generated evidence remain unchanged below it.
+These journeys map product roles to the static landing page, deterministic
+browser simulator, and installed local control plane. The simulator uses
+temporary in-memory state; the registered SQLite lineage and generated
+evidence remain unchanged below it. The optional endpoint connector reads a
+live installed workspace and labels it separately from fixture state.
 
 ## 1. Research director allocates a fixed budget
 
@@ -82,3 +84,22 @@ changed the decision.
 - **Undetermined state:** The log names the missing evidence and records that no
   verdict was inferred.
 
+## 5. Installed operator runs the real local service
+
+**Intent:** Exercise the portfolio mechanism with caller-registered paired
+measurements and retain state through a restart.
+
+- **Install:** Build a wheel or install the checkout, then run
+  `flotilla serve --budget 12`. Loopback is the safe default; a wider bind
+  requires a bearer token.
+- **Register:** Submit a thesis, executable safe predicate, cap, limitations,
+  deadline, and local plan DAG. Cycles, unknown dependencies, invalid samples,
+  unsafe predicates, and over-budget inputs are rejected before persistence.
+- **Approve and run:** A named human approves the plan. `portfolio/step` runs
+  unresolved falsifiers first; `portfolio/run` repeats the same scheduler.
+- **Review:** A fired rule stops at `PENDING_KILL`. Confirm, overturn, and revive
+  are explicit append-only decisions. Budget-cap transfers require actor and
+  reason and have an explicit reverse operation.
+- **Audit:** Reloading the service preserves remaining capital, results,
+  decisions, transfers, and request-linked lineage. The hosted demo can inspect
+  this state read-only when the operator configures its exact origin.

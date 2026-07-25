@@ -4,9 +4,9 @@ __pycache__/
 .pytest_cache/
 .ruff_cache/
 .venv/
+.wrangler/
 build/
 dist/
 *.egg-info/
 reports/*.sqlite
 reports/*.html
-

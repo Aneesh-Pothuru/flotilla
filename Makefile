@@ -1,7 +1,7 @@
 PYTHON ?= python3
 export PYTHONPATH := src
 
-.PHONY: demo test lint reproduce-demo reproduce-budget clean
+.PHONY: demo test lint reproduce-demo reproduce-budget service clean
 
 demo:
 	$(PYTHON) -m flotilla demo
@@ -19,6 +19,8 @@ reproduce-demo:
 reproduce-budget:
 	$(PYTHON) scripts/reproduce_budget.py
 
+service:
+	$(PYTHON) -m flotilla serve --budget 12
+
 clean:
 	$(PYTHON) -m flotilla clean
-

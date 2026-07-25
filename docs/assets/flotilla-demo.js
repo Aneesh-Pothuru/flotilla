@@ -26,6 +26,11 @@
     evidenceTitle: document.getElementById("evidence-title"),
     evidenceBody: document.getElementById("evidence-body"),
     lineage: document.getElementById("interactive-lineage"),
+    liveEndpoint: document.getElementById("live-endpoint"),
+    liveToken: document.getElementById("live-token"),
+    liveConnect: document.getElementById("live-connect-button"),
+    liveStatus: document.getElementById("live-service-status"),
+    liveSummary: document.getElementById("live-service-summary"),
   };
 
   const scenarioLabels = {
@@ -43,6 +48,64 @@
       .replaceAll(">", "&gt;")
       .replaceAll('"', "&quot;")
       .replaceAll("'", "&#039;");
+
+  async function connectLiveService() {
+    const endpoint = elements.liveEndpoint.value.trim().replace(/\/+$/, "");
+    let parsed;
+    try {
+      parsed = new URL(endpoint);
+    } catch {
+      elements.liveStatus.textContent = "Enter a valid service URL.";
+      return;
+    }
+    if (!["http:", "https:"].includes(parsed.protocol)) {
+      elements.liveStatus.textContent = "The endpoint must use HTTP or HTTPS.";
+      return;
+    }
+    elements.liveConnect.disabled = true;
+    elements.liveStatus.textContent = "Connecting to the installed workspace…";
+    const controller = new AbortController();
+    const timeout = window.setTimeout(() => controller.abort(), 5000);
+    const headers = {};
+    if (elements.liveToken.value) {
+      headers.Authorization = `Bearer ${elements.liveToken.value}`;
+    }
+    try {
+      const response = await fetch(`${endpoint}/v1/portfolio`, {
+        method: "GET",
+        headers,
+        cache: "no-store",
+        signal: controller.signal,
+      });
+      const payload = await response.json();
+      if (!response.ok) {
+        throw new Error(payload.error?.message || `HTTP ${response.status}`);
+      }
+      const statusRows = Object.entries(payload.statuses || {})
+        .map(
+          ([status, count]) =>
+            `<li><span>${escapeHtml(status.replaceAll("_", " "))}</span><strong>${escapeHtml(count)}</strong></li>`,
+        )
+        .join("");
+      elements.liveSummary.innerHTML = `
+        <div><span>Persistent budget</span><strong>${Number(payload.remaining).toFixed(1)} / ${Number(payload.total_budget).toFixed(1)}u</strong></div>
+        <div><span>Recorded runs</span><strong>${escapeHtml(payload.runs)}</strong></div>
+        <div><span>Lineage events</span><strong>${escapeHtml(payload.events)}</strong></div>
+        <ul>${statusRows || "<li><span>No theses registered</span><strong>0</strong></li>"}</ul>`;
+      elements.liveSummary.hidden = false;
+      elements.liveStatus.textContent =
+        "Live read-only workspace connected. Fixture controls remain isolated.";
+    } catch (error) {
+      elements.liveSummary.hidden = true;
+      elements.liveStatus.textContent =
+        error.name === "AbortError"
+          ? "Connection timed out. Is the local service running?"
+          : `Could not connect: ${error.message}`;
+    } finally {
+      window.clearTimeout(timeout);
+      elements.liveConnect.disabled = false;
+    }
+  }
 
   function freshState() {
     return {
@@ -495,6 +558,7 @@
   elements.revive.addEventListener("click", revive);
   elements.reallocate.addEventListener("click", reallocate);
   elements.reset.addEventListener("click", () => reset(true));
+  elements.liveConnect.addEventListener("click", connectLiveService);
 
   reset(false);
 })();

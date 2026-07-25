@@ -14,6 +14,13 @@ This repository is an honest local MVP.
   simulator for scenario selection, budget controls, experiment stepping,
   capital earmarking, kill/overturn/revive decisions, evidence, and lineage.
 - An explicit `UNDETERMINED` decision when predicate evidence is absent.
+- A persistent installed HTTP service over the real local executor and safe
+  predicate engine: initialization, registration, approval, dependency-aware
+  step/run, results, human confirm/overturn/revive, reversible cap
+  reallocation, restart-safe budget state, health/readiness, request IDs,
+  bounded inputs, bearer auth for non-loopback binds, and exact-origin CORS.
+- A non-root, capability-dropped Docker/Compose path with a persistent data
+  volume and loopback-only host publication.
 
 ## Not yet demonstrated
 
@@ -26,15 +33,23 @@ This repository is an honest local MVP.
 - The false-kill study protocol is documented in `docs/FALSE_KILL_STUDY.md`,
   but no sufficiently powered study has run.
 - The LLM planner, AblationBench comparison, contradiction detector, adaptive
-  replanning, hosted service, and BATON executor are not implemented.
+  replanning, hosted multi-user control plane, and BATON executor are not
+  implemented.
 - Notebook execution is emitted, not submitted to Kaggle or Colab.
 - The scheduler uses a deterministic falsifier-first/fair-floor policy. It is
   not the later budgeted-bandit policy described for v0.3.
-- The SQLite backend is single-process and single-machine. There is no
-  distributed claim or transaction coordinator.
+- The SQLite backend is single-machine. The HTTP service serializes local
+  writes and uses WAL, but there is no distributed claim, external identity
+  provider, tenant isolation, RBAC, TLS termination, queue, or transaction
+  coordinator. Operators must put a non-loopback deployment behind their own
+  TLS/auth gateway and back up the data volume.
 - Browser simulator state is temporary and deliberately does not mutate the
-  registered SQLite ledger. It demonstrates interaction and governance paths,
-  not a hosted multi-user control plane.
+  registered SQLite ledger. Its optional live connector is read-only and needs
+  an explicitly allowed origin. It demonstrates interaction and governance
+  paths, not a hosted multi-user control plane.
+- The installed executor still analyzes caller-registered paired measurements;
+  it does not launch arbitrary training code, Kubernetes jobs, Kaggle jobs, or
+  GPUs. The executor field deliberately rejects anything except `local`.
 
 The dashboard labels fixture-derived results and must not be presented as a
 scientific validation of the example theses.
