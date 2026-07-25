@@ -82,8 +82,9 @@ def run_demo(
 
     pages_target = Path(pages_index_path)
     pages_target.parent.mkdir(parents=True, exist_ok=True)
-    pages_target.write_text(
-        """<!doctype html>
+    if not pages_target.exists():
+        pages_target.write_text(
+            """<!doctype html>
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta http-equiv="refresh" content="0;url=demo/">
@@ -91,8 +92,8 @@ def run_demo(
 <body><p><a href="demo/">Open the FLOTILLA Journey 0 dashboard</a>.</p></body>
 </html>
 """,
-        encoding="utf-8",
-    )
+            encoding="utf-8",
+        )
     if summary_json is not None:
         summary_target = Path(summary_json)
         summary_target.parent.mkdir(parents=True, exist_ok=True)

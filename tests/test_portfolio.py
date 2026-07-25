@@ -72,6 +72,12 @@ class PortfolioTests(unittest.TestCase):
                 "Five theses. One budget.",
                 (root / "docs/demo/index.html").read_text(encoding="utf-8"),
             )
+            demo_html = (root / "docs/demo/index.html").read_text(
+                encoding="utf-8"
+            )
+            self.assertIn("Interactive strategy simulator", demo_html)
+            self.assertIn("flotilla-demo.js", demo_html)
+            self.assertIn("flotilla-snapshot", demo_html)
             self.assertEqual(json.loads((root / "summary.json").read_text()), summary)
 
     def test_kill_is_reversible_and_evidence_is_retained(self) -> None:
@@ -91,4 +97,3 @@ class PortfolioTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
-

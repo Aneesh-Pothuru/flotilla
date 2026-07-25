@@ -23,13 +23,20 @@ budget is released, and the three survivors receive follow-up runs. It writes:
 - `reports/flotilla.sqlite` — append-only events, runs, decisions, and lineage;
 - `reports/T-01-kill.md` and `reports/T-03-kill.md` — argued kill reports;
 - `reports/notebook-job.ipynb` — a Colab/Kaggle-ready emitted job;
-- `docs/demo/index.html` — the static portfolio dashboard.
+- `docs/index.html` — the editorial product site;
+- `docs/demo/index.html` — the generated portfolio report and interactive,
+  deterministic browser strategy simulator.
 
-The committed [demo dashboard](docs/demo/index.html) is regenerated on every
-demo. `flotilla revive T-01 --ledger reports/flotilla.sqlite --reason "new
+The committed [product site](docs/index.html) links to the
+[interactive demo](docs/demo/index.html), which is regenerated on every demo.
+The browser lab uses temporary in-memory state and never rewrites the registered
+ledger. It supports scenario and thesis selection, mandate controls,
+launch/step/reset, capital earmarking, stop confirmation, reviewer overturn,
+revival, evolving trajectory/allocation charts, an evidence drawer, and
+simulation lineage.
+
+`flotilla revive T-01 --ledger reports/flotilla.sqlite --reason "new
 evidence"` records a reversible challenge without erasing the original kill.
-
-![FLOTILLA five-thesis portfolio dashboard](docs/assets/demo.jpg)
 
 ## Commands
 
@@ -68,4 +75,6 @@ thesis + prediction + safe predicate
 The vendored [loopkit schema](schemas/loopkit.schema.json) defines the portable
 run, trace-event, score, and verdict envelope. The complete source brief is in
 [docs/BRIEF.md](docs/BRIEF.md). See [LIMITS.md](LIMITS.md) for measurements
-that are not yet established.
+that are not yet established. Product research and role-to-interface mappings
+are documented in [docs/COMPETITIVE_UI.md](docs/COMPETITIVE_UI.md) and
+[docs/USER_JOURNEYS.md](docs/USER_JOURNEYS.md).

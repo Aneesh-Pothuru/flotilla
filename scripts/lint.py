@@ -7,7 +7,17 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
-TEXT_SUFFIXES = {".py", ".md", ".json", ".yml", ".yaml", ".toml"}
+TEXT_SUFFIXES = {
+    ".py",
+    ".md",
+    ".json",
+    ".yml",
+    ".yaml",
+    ".toml",
+    ".html",
+    ".css",
+    ".js",
+}
 
 
 def main() -> int:
@@ -41,4 +51,3 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-

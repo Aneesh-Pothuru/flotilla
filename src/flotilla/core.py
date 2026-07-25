@@ -762,56 +762,225 @@ def emit_notebook_job(node: PlanNode, output: str | Path) -> Path:
 
 
 def render_dashboard(ledger: Ledger, output: str | Path) -> Path:
-    """Render a dependency-free static portfolio view."""
+    """Render the ledger as an editorial research portfolio chart."""
 
     thesis_rows = ledger.rows("theses")
+    runs = ledger.rows("runs")
     events = ledger.rows("events")
     decisions = ledger.rows("decisions")
+    budget_entries = ledger.rows("budget_entries")
     undetermined = sum(row["verdict"] == "UNDETERMINED" for row in decisions)
     total_spend = sum(float(row["spent"]) for row in thesis_rows)
+    remaining = (
+        float(budget_entries[-1]["remaining"]) if budget_entries else 0.0
+    )
+    portfolio_budget = total_spend + remaining
+    released = sum(
+        float(row["amount"]) for row in budget_entries if row["action"] == "RELEASE"
+    )
+    falsifier_spend = sum(
+        float(row["cost"]) for row in runs if row["node_kind"] == "falsifier"
+    )
+    followup_spend = total_spend - falsifier_spend
+    statuses = {
+        status: sum(str(row["status"]) == status for row in thesis_rows)
+        for status in ("SURVIVED", "KILLED", "REVIVED", "UNDETERMINED")
+    }
     colors = {
         "KILLED": "dead",
         "SURVIVED": "alive",
         "REVIVED": "revived",
         "UNDETERMINED": "unknown",
     }
+
+    def runs_for(thesis_id: str) -> list[sqlite3.Row]:
+        return [row for row in runs if row["thesis_id"] == thesis_id]
+
+    def decisions_for(thesis_id: str) -> list[sqlite3.Row]:
+        return [row for row in decisions if row["thesis_id"] == thesis_id]
+
+    allocation_segments = "".join(
+        "<span "
+        f"class='{colors.get(str(row['status']), '')}' "
+        f"style='width:{(float(row['spent']) / portfolio_budget * 100) if portfolio_budget else 0:.2f}%' "
+        f"title='{html.escape(str(row['id']))}: {float(row['spent']):.1f} units'>"
+        f"<span class='sr-only'>{html.escape(str(row['id']))}: "
+        f"{float(row['spent']):.1f} units</span></span>"
+        for row in thesis_rows
+    )
+    if remaining:
+        allocation_segments += (
+            "<span class='reserve' "
+            f"style='width:{remaining / portfolio_budget * 100:.2f}%' "
+            f"title='Uncommitted reserve: {remaining:.1f} units'>"
+            f"<span class='sr-only'>Uncommitted reserve: {remaining:.1f} units"
+            "</span></span>"
+        )
+
+    capital_rows = "\n".join(
+        "<li>"
+        f"<span class='capital-name'>{html.escape(str(row['id']))}</span>"
+        "<span class='capital-soundings' aria-hidden='true'>"
+        f"<i class='{colors.get(str(row['status']), '')}' "
+        f"style='width:{(float(row['spent']) / portfolio_budget * 100) if portfolio_budget else 0:.2f}%'></i>"
+        "</span>"
+        f"<strong>{float(row['spent']):.1f}</strong>"
+        "</li>"
+        for row in thesis_rows
+    )
+    capital_rows += (
+        "<li><span class='capital-name'>Reserve</span>"
+        "<span class='capital-soundings' aria-hidden='true'>"
+        f"<i class='reserve' style='width:{remaining / portfolio_budget * 100 if portfolio_budget else 0:.2f}%'></i>"
+        f"</span><strong>{remaining:.1f}</strong></li>"
+    )
+
+    voyage_cards: list[str] = []
+    for row in thesis_rows:
+        thesis_id = str(row["id"])
+        status = str(row["status"])
+        thesis_runs = runs_for(thesis_id)
+        thesis_decisions = decisions_for(thesis_id)
+        route_steps = [
+            "<li class='route-step done'><b>Registered</b><span>Thesis v"
+            f"{int(row['version'])}</span></li>"
+        ]
+        route_steps.extend(
+            "<li class='route-step done'>"
+            f"<b>{html.escape(str(run['node_kind']).title())}</b>"
+            f"<span>{float(run['cost']):.1f}u · seed {int(run['seed'])}</span>"
+            "</li>"
+            for run in thesis_runs
+        )
+        route_steps.append(
+            f"<li class='route-step terminal {colors.get(status, '')}'>"
+            f"<b>{html.escape(status.title())}</b>"
+            f"<span>{'Challengeable stop' if status == 'KILLED' else 'Course retained'}</span>"
+            "</li>"
+        )
+        limitation_items = "".join(
+            f"<li>{html.escape(str(item))}</li>"
+            for item in json.loads(str(row["limitations"]))
+        )
+        run_items = "".join(
+            "<li><div><strong>"
+            f"{html.escape(str(run['node_id']))}</strong> · "
+            f"{html.escape(str(run['node_kind']))} · {float(run['cost']):.1f}u"
+            "</div><code>"
+            f"commit {html.escape(str(run['code_commit']))} · "
+            f"data {html.escape(str(run['data_hash']))} · seed {int(run['seed'])}"
+            "</code></li>"
+            for run in thesis_runs
+        )
+        decision_items = "".join(
+            "<li><strong>"
+            f"{html.escape(str(decision['verdict']))}</strong>"
+            f"<span>run {html.escape(str(decision['run_id'] or 'portfolio'))}"
+            f" · confirmer {html.escape(str(decision['confirmer'] or 'none'))}</span>"
+            f"<code>{html.escape(str(decision['predicate']))}</code></li>"
+            for decision in thesis_decisions
+        )
+        decision_sequence = " → ".join(
+            html.escape(str(decision["verdict"])) for decision in thesis_decisions
+        )
+        if not decision_sequence:
+            decision_sequence = "No decision recorded"
+        challenge = {
+            "KILLED": "Stop recorded. REVIVE remains available without erasing this lineage.",
+            "REVIVED": "A prior stop was challenged; the original decision remains in lineage.",
+            "SURVIVED": "Promoted after its approved plan completed without a kill.",
+            "UNDETERMINED": "Evidence was insufficient; no directional claim was inferred.",
+        }.get(status, "Plan remains in progress.")
+        voyage_cards.append(
+            f"""<article class="voyage {colors.get(status, '')}" aria-labelledby="title-{thesis_id}">
+<header class="voyage-head"><div><span class="signal">{html.escape(thesis_id)}</span>
+<h3 id="title-{thesis_id}">{html.escape(str(row['title']))}</h3></div>
+<span class="status {colors.get(status, '')}">{html.escape(status)}</span></header>
+<p class="prediction">{html.escape(str(row['prediction']))}</p>
+<ol class="route" aria-label="{html.escape(thesis_id)} experiment trajectory">
+{''.join(route_steps)}</ol>
+<div class="voyage-foot"><span><b>{float(row['spent']):.1f}</b> / {float(row['budget_cap']):.1f} units</span>
+<span class="sequence">{decision_sequence}</span></div>
+<details class="dossier"><summary>Open evidence dossier</summary>
+<div class="dossier-grid"><section><h4>Registered rule</h4>
+<code class="predicate">{html.escape(str(row['kill_predicate']))}</code>
+<p>Decision deadline<br><strong>{html.escape(str(row['deadline']))}</strong></p>
+<p>{html.escape(challenge)}</p><h4>Conditions under which this may be wrong</h4>
+<ul>{limitation_items}</ul></section><section><h4>Run lineage</h4>
+<ol class="evidence-list">{run_items}</ol><h4>Decision lineage</h4>
+<ol class="evidence-list">{decision_items}</ol></section></div></details></article>"""
+        )
+
+    snapshot_theses: list[dict[str, Any]] = []
+    for row in thesis_rows:
+        thesis_id = str(row["id"])
+        thesis_runs = runs_for(thesis_id)
+        falsifier = next(
+            (run for run in thesis_runs if run["node_kind"] == "falsifier"),
+            None,
+        )
+        followup_cost = sum(
+            float(run["cost"])
+            for run in thesis_runs
+            if run["node_kind"] != "falsifier"
+        )
+        snapshot_theses.append(
+            {
+                "id": thesis_id,
+                "title": str(row["title"]),
+                "prediction": str(row["prediction"]),
+                "predicate": str(row["kill_predicate"]),
+                "budget_cap": float(row["budget_cap"]),
+                "registered_status": str(row["status"]),
+                "registered_spend": float(row["spent"]),
+                "deadline": str(row["deadline"]),
+                "limitations": json.loads(str(row["limitations"])),
+                "falsifier_scores": (
+                    json.loads(str(falsifier["scores"])) if falsifier else {}
+                ),
+                "falsifier_cost": float(falsifier["cost"]) if falsifier else 1.0,
+                "followup_cost": followup_cost or 2.0,
+            }
+        )
+    snapshot = {
+        "schema": "flotilla.browser-demo.v1",
+        "portfolio_budget": portfolio_budget,
+        "registered_spend": total_spend,
+        "registered_remaining": remaining,
+        "theses": snapshot_theses,
+    }
+    snapshot_json = json.dumps(snapshot, sort_keys=True).replace("</", "<\\/")
+    thesis_options = "".join(
+        f"<option value='{html.escape(item['id'])}'>{html.escape(item['id'])} · "
+        f"{html.escape(item['title'])}</option>"
+        for item in snapshot_theses
+    )
+    first_thesis = snapshot_theses[0] if snapshot_theses else {
+        "id": "none",
+        "title": "No thesis",
+        "prediction": "No thesis registered.",
+        "predicate": "UNDETERMINED",
+    }
+
     thesis_html = "\n".join(
         "<tr>"
         f"<td>{html.escape(str(row['id']))}</td>"
         f"<td>{html.escape(str(row['title']))}</td>"
-        f"<td><span class='pill {colors.get(str(row['status']), '')}'>"
+        f"<td><span class='status {colors.get(str(row['status']), '')}'>"
         f"{html.escape(str(row['status']))}</span></td>"
-        f"<td>{float(row['spent']):.1f}</td>"
+        f"<td>{float(row['spent']):.1f} / {float(row['budget_cap']):.1f}</td>"
         f"<td><code>{html.escape(str(row['kill_predicate']))}</code></td>"
         "</tr>"
         for row in thesis_rows
     )
-    thesis_cards = "\n".join(
-        "<article class='thesis-card'>"
-        "<div class='thesis-top'>"
-        f"<span class='thesis-id'>{html.escape(str(row['id']))}</span>"
-        f"<span class='pill {colors.get(str(row['status']), '')}'>"
-        f"{html.escape(str(row['status']))}</span></div>"
-        f"<h3>{html.escape(str(row['title']))}</h3>"
-        "<div class='thesis-meta'>"
-        f"<span>SPEND <strong>{float(row['spent']):.1f}</strong></span>"
-        f"<span>PREDICATE <code>{html.escape(str(row['kill_predicate']))}</code></span>"
-        "</div></article>"
-        for row in thesis_rows
-    )
-    allocation_segments = "".join(
-        "<span "
-        f"class='{colors.get(str(row['status']), '')}' "
-        f"style='width:{(float(row['spent']) / total_spend * 100) if total_spend else 0:.2f}%' "
-        f"title='{html.escape(str(row['id']))}: {float(row['spent']):.1f} units'></span>"
-        for row in thesis_rows
-    )
     event_html = "\n".join(
-        "<tr>"
-        f"<td>{row['sequence']}</td><td>{html.escape(str(row['logical_time']))}</td>"
-        f"<td>{html.escape(str(row['kind']))}</td>"
-        f"<td>{html.escape(str(row['thesis_id'] or 'portfolio'))}</td>"
-        "</tr>"
+        "<li>"
+        f"<span class='log-sequence'>{int(row['sequence']):02d}</span>"
+        "<span class='log-time'>"
+        f"{html.escape(str(row['logical_time'])[11:16])}</span>"
+        f"<strong>{html.escape(str(row['kind']).replace('_', ' ').title())}</strong>"
+        f"<span>{html.escape(str(row['thesis_id'] or 'portfolio'))}</span>"
+        "</li>"
         for row in events
     )
     document = f"""<!doctype html>
@@ -819,110 +988,253 @@ def render_dashboard(ledger: Ledger, output: str | Path) -> Path:
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>FLOTILLA — five-thesis demo</title>
+<meta name="description" content="FLOTILLA's deterministic five-thesis research portfolio and capital-allocation record.">
+<title>FLOTILLA — research portfolio chart</title>
+<link rel="stylesheet" href="../assets/site.css">
 <style>
-:root{{--bg:#080b12;--panel:#10151f;--panel-2:#151b27;--line:#28303d;
---text:#f8f9f5;--muted:#929ba8;--faint:#616a78;--mint:#7cf3b4;--coral:#ff806f;
---violet:#b29bff;--amber:#f0c46b;--cyan:#6ed9e5;--shadow:0 26px 72px rgba(0,0,0,.4)}}
-*{{box-sizing:border-box}}html{{scroll-behavior:smooth}}body{{margin:0;color:var(--text);
-background:radial-gradient(circle at 85% 0,rgba(255,128,111,.12),transparent 31rem),
-radial-gradient(circle at 12% 22%,rgba(124,243,180,.08),transparent 26rem),var(--bg);
-font:14px/1.55 Inter,ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}}
-.topbar{{height:58px;border-bottom:1px solid var(--line);padding:0 26px;display:flex;
-align-items:center;justify-content:space-between;position:sticky;top:0;z-index:10;
-background:rgba(8,11,18,.86);backdrop-filter:blur(16px)}}.brand{{display:flex;align-items:center;
-gap:11px;font-weight:780}}.brand-mark{{width:27px;height:27px;border-radius:8px;
-display:grid;place-items:center;background:linear-gradient(145deg,var(--coral),#ef5c81);
-color:#15090b;box-shadow:0 0 22px rgba(255,128,111,.22)}}.topmeta{{display:flex;gap:14px;
-align-items:center;color:var(--muted);font:10px ui-monospace,monospace;text-transform:uppercase;
-letter-spacing:.11em}}.ready{{display:flex;align-items:center;gap:7px;color:#d4f8e4}}
-.ready:before{{content:"";width:6px;height:6px;border-radius:50%;background:var(--mint);
-box-shadow:0 0 12px var(--mint)}}main{{max-width:1380px;margin:auto;padding:30px 26px 64px}}
-.hero{{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(340px,.75fr);
-border:1px solid var(--line);border-radius:18px;overflow:hidden;background:linear-gradient(145deg,
-rgba(22,28,40,.98),rgba(11,15,23,.98));box-shadow:var(--shadow)}}.hero-copy{{padding:36px 38px}}
-.eyebrow,.section-label{{margin:0 0 13px;color:var(--coral);font:750 10px ui-monospace,
-monospace;letter-spacing:.16em;text-transform:uppercase}}.eyebrow:before{{content:"";
-display:inline-block;width:24px;height:1px;background:currentColor;vertical-align:middle;
-margin-right:9px}}h1{{font-size:clamp(38px,5vw,66px);line-height:.98;letter-spacing:-.05em;
-margin:0}}.lede{{font-size:17px;color:#b7bec8;max-width:720px;margin:20px 0 0}}
-.budget-panel{{border-left:1px solid var(--line);padding:28px;background:rgba(5,8,13,.25)}}
-.budget-total{{display:flex;align-items:end;justify-content:space-between;gap:20px}}
-.budget-total strong{{font-size:42px;line-height:1;letter-spacing:-.04em}}.budget-total span{{
-color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.1em}}.allocation{{
-height:12px;display:flex;overflow:hidden;border-radius:99px;background:#080b12;margin:21px 0 13px;
-border:1px solid var(--line)}}.allocation span{{height:100%;min-width:3px;border-right:2px solid #0e121b}}
-.allocation .alive{{background:var(--mint)}}.allocation .dead{{background:var(--coral)}}
-.allocation .revived{{background:var(--violet)}}.allocation .unknown{{background:var(--amber)}}
-.legend{{display:flex;gap:14px;flex-wrap:wrap;color:var(--muted);font-size:10px}}.legend span:before{{
-content:"";display:inline-block;width:7px;height:7px;border-radius:2px;background:currentColor;
-margin-right:6px}}.legend .survivor{{color:var(--mint)}}.legend .killed{{color:var(--coral)}}
-.metrics{{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin:17px 0}}
-.metric,.panel,.thesis-card{{background:linear-gradient(180deg,rgba(17,22,32,.97),
-rgba(11,15,23,.98));border:1px solid var(--line);border-radius:14px}}.metric{{padding:17px}}
-.metric strong{{display:block;font-size:27px;line-height:1.15}}.metric span{{display:block;
-color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:.1em;margin-top:7px}}
-.section-head{{display:flex;justify-content:space-between;align-items:end;gap:20px;margin:28px 0 12px}}
-.section-head h2{{margin:0;font-size:22px}}.section-head>p{{margin:0;color:var(--muted)}}
-.thesis-grid{{display:grid;grid-template-columns:repeat(5,minmax(190px,1fr));gap:10px}}
-.thesis-card{{padding:15px;min-height:178px;display:flex;flex-direction:column}}.thesis-top{{
-display:flex;align-items:center;justify-content:space-between;gap:8px}}.thesis-id{{color:var(--faint);
-font:700 10px ui-monospace,monospace;letter-spacing:.1em}}.thesis-card h3{{font-size:15px;
-line-height:1.35;margin:19px 0;letter-spacing:-.01em}}.thesis-meta{{margin-top:auto;display:grid;
-gap:8px;color:var(--faint);font:650 9px ui-monospace,monospace;letter-spacing:.08em}}
-.thesis-meta span{{display:grid;grid-template-columns:58px minmax(0,1fr);gap:6px}}.thesis-meta strong,
-.thesis-meta code{{color:#c7ced7;font-size:10px;overflow-wrap:anywhere}}.pill{{display:inline-flex;
-padding:4px 7px;border-radius:999px;font:750 9px ui-monospace,monospace;letter-spacing:.06em;
-border:1px solid transparent}}.alive{{background:#163a2b;color:var(--mint);border-color:#24543f}}
-.dead{{background:#3e1d1b;color:#ff9d90;border-color:#60302c}}.revived{{background:#2c2548;
-color:#cabbff;border-color:#493d75}}.unknown{{background:#392f17;color:var(--amber);
-border-color:#5e4d25}}.panel{{overflow:hidden;margin-top:14px}}.panel-head{{display:flex;
-align-items:center;justify-content:space-between;padding:18px 20px;border-bottom:1px solid var(--line)}}
-.panel-head h2{{margin:0;font-size:20px}}.panel-head span{{color:var(--muted);font-size:11px}}
-.scroll{{overflow:auto;max-height:520px}}table{{width:100%;border-collapse:collapse;font-size:12px}}
-th,td{{text-align:left;padding:11px 13px;border-bottom:1px solid var(--line);vertical-align:top}}
-th{{position:sticky;top:0;background:#121722;color:var(--faint);font:700 9px
-ui-monospace,monospace;text-transform:uppercase;letter-spacing:.1em}}tbody tr:hover{{
-background:rgba(124,243,180,.03)}}code{{font:11px ui-monospace,monospace}}.note{{display:flex;
-justify-content:space-between;gap:20px;color:var(--muted);font-size:12px;border-top:1px solid
-var(--line);padding-top:17px;margin-top:22px}}@media(max-width:1120px){{.thesis-grid{{
-grid-template-columns:repeat(3,1fr)}}}}@media(max-width:900px){{.hero{{grid-template-columns:1fr}}
-.budget-panel{{border-left:0;border-top:1px solid var(--line)}}}}@media(max-width:700px){{
-.topbar{{padding:0 14px}}.topmeta>span:first-child{{display:none}}main{{padding:18px 14px 42px}}
-.hero-copy,.budget-panel{{padding:24px 20px}}.metrics{{grid-template-columns:1fr}}
-.thesis-grid{{grid-template-columns:1fr}}.section-head,.note{{align-items:start;flex-direction:column}}}}
+:root{{--paper:#f4f0e5;--paper-deep:#e8dfca;--ink:#17333b;--ink-soft:#466069;
+--rule:#aab3a8;--rule-dark:#6e7f7d;--sea:#1f6766;--sea-pale:#cddfda;
+--stop:#a5432f;--stop-pale:#edd4c8;--revive:#6d527d;--revive-pale:#ded2e2;
+--amber:#a77a2a;--reserve:#c9b98f;--white:#fffdf6;--shadow:0 18px 42px rgba(35,50,48,.1)}}
+*{{box-sizing:border-box}}html{{scroll-behavior:smooth}}body{{margin:0;color:var(--ink);
+background-color:var(--paper);background-image:linear-gradient(rgba(42,83,84,.055) 1px,transparent 1px),
+linear-gradient(90deg,rgba(42,83,84,.055) 1px,transparent 1px);
+background-size:32px 32px;font:15px/1.55 "Avenir Next",Avenir,"Segoe UI",sans-serif}}
+a{{color:inherit}}.skip{{position:absolute;left:1rem;top:-5rem;background:var(--ink);
+color:white;padding:.6rem 1rem;z-index:20}}.skip:focus{{top:1rem}}.sr-only{{position:absolute;
+width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);
+white-space:nowrap;border:0}}.masthead{{border-bottom:1px solid var(--ink);
+background:rgba(244,240,229,.94)}}.masthead-inner{{max-width:1480px;margin:auto;padding:18px 32px;
+display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:24px}}.folio,.dateline{{
+font:700 10px/1.3 ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.13em;
+text-transform:uppercase;color:var(--ink-soft)}}.dateline{{text-align:right}}.wordmark{{
+font:700 24px/1 Georgia,serif;letter-spacing:.22em}}.subnav{{border-bottom:1px solid var(--rule);
+background:rgba(244,240,229,.92)}}.subnav nav{{max-width:1480px;margin:auto;padding:9px 32px;
+display:flex;gap:24px;justify-content:center;flex-wrap:wrap}}.subnav a{{font-size:11px;
+font-weight:700;letter-spacing:.08em;text-decoration:none;text-transform:uppercase}}.subnav a:focus-visible,
+summary:focus-visible{{outline:3px solid var(--amber);outline-offset:3px}}main{{max-width:1480px;
+margin:auto;padding:34px 32px 72px}}.hero{{display:grid;grid-template-columns:minmax(0,1.65fr)
+minmax(330px,.7fr);gap:38px;padding:20px 0 38px;border-bottom:3px double var(--ink)}}.overline,
+.section-kicker{{margin:0 0 12px;color:var(--stop);font:800 10px ui-monospace,
+SFMono-Regular,Menlo,monospace;text-transform:uppercase;letter-spacing:.17em}}h1,h2,h3,h4{{
+font-family:Georgia,"Times New Roman",serif}}h1{{font-size:clamp(50px,7.7vw,116px);
+font-weight:500;line-height:.82;letter-spacing:-.065em;margin:0;max-width:1020px}}.deck{{
+font:20px/1.45 Georgia,serif;max-width:780px;margin:28px 0 22px;color:#2e4a51}}.thesis{{
+max-width:760px;padding:15px 0 0 62px;border-top:1px solid var(--rule);position:relative;
+color:var(--ink-soft)}}.thesis:before{{content:"N";position:absolute;left:5px;top:13px;width:34px;
+height:34px;border:1px solid var(--ink);border-radius:50%;display:grid;place-items:center;
+font:700 11px Georgia,serif}}.thesis:after{{content:"";position:absolute;left:21px;top:7px;
+width:1px;height:46px;background:var(--ink);transform:rotate(24deg)}}.manifest{{
+border:1px solid var(--ink);background:rgba(255,253,246,.66);box-shadow:var(--shadow)}}.manifest-head{{
+padding:18px 20px;border-bottom:1px solid var(--ink);display:flex;justify-content:space-between;
+align-items:end}}.manifest-head h2{{font-size:25px;font-weight:500;margin:0}}.manifest-head span{{
+font:700 10px ui-monospace,monospace;text-transform:uppercase;letter-spacing:.12em}}.manifest-total{{
+display:grid;grid-template-columns:1fr 1fr;border-bottom:1px solid var(--rule)}}.manifest-total div{{
+padding:18px 20px}}.manifest-total div+div{{border-left:1px solid var(--rule)}}.manifest-total strong{{
+display:block;font:500 42px/1 Georgia,serif}}.manifest-total span{{font-size:10px;text-transform:uppercase;
+letter-spacing:.1em;color:var(--ink-soft)}}.allocation{{height:18px;display:flex;margin:20px;
+border:1px solid var(--ink);background:var(--paper-deep)}}.allocation>span{{display:block;height:100%;
+border-right:2px solid var(--white)}}.allocation .alive,.capital-soundings .alive{{background:var(--sea)}}
+.allocation .dead,.capital-soundings .dead{{background:var(--stop)}}.allocation .revived,
+.capital-soundings .revived{{background:var(--revive)}}.allocation .unknown,
+.capital-soundings .unknown{{background:var(--amber)}}.allocation .reserve,.capital-soundings .reserve{{
+background:repeating-linear-gradient(135deg,var(--reserve),var(--reserve) 4px,
+var(--paper) 4px,var(--paper) 8px)}}.capital-list{{list-style:none;margin:0;padding:0 20px 14px}}.capital-list li{{
+display:grid;grid-template-columns:62px 1fr 30px;gap:9px;align-items:center;margin:8px 0;
+font:700 10px ui-monospace,monospace;text-transform:uppercase}}.capital-soundings{{height:5px;
+background:var(--paper-deep);display:block}}.capital-soundings i{{display:block;height:100%}}.manifest-note{{
+padding:13px 20px;border-top:1px solid var(--rule);font-size:12px;color:var(--ink-soft);
+margin:0}}.briefing{{display:grid;grid-template-columns:repeat(6,1fr);border-bottom:1px solid var(--ink);
+margin-bottom:40px}}.briefing div{{padding:17px 16px;border-right:1px solid var(--rule)}}.briefing div:last-child{{
+border-right:0}}.briefing strong{{display:block;font:500 30px/1 Georgia,serif}}.briefing span{{
+font-size:9px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-soft)}}
+.section-head{{display:grid;grid-template-columns:1fr minmax(280px,.48fr);gap:32px;align-items:end;
+margin-bottom:20px}}.section-head h2{{font-size:clamp(32px,4vw,58px);line-height:.98;font-weight:500;
+letter-spacing:-.035em;margin:0}}.section-head p:last-child{{margin:0;color:var(--ink-soft);
+border-left:1px solid var(--rule);padding-left:20px}}.strategy-table{{border-top:1px solid var(--ink);
+margin-bottom:52px}}.voyage{{padding:24px 0 0;border-bottom:1px solid var(--ink)}}.voyage-head{{
+display:grid;grid-template-columns:minmax(0,1fr) auto;gap:20px;align-items:start}}.voyage-head>div{{
+display:grid;grid-template-columns:74px minmax(0,1fr);gap:18px;align-items:baseline}}.signal{{
+font:800 11px ui-monospace,monospace;letter-spacing:.1em;color:var(--stop)}}.voyage h3{{
+font-size:clamp(23px,2.3vw,36px);line-height:1.05;font-weight:500;margin:0}}.status{{
+display:inline-block;padding:5px 8px;border:1px solid currentColor;font:800 9px ui-monospace,
+monospace;letter-spacing:.09em;text-transform:uppercase;background:var(--white)}}.status.alive{{
+color:var(--sea)}}.status.dead{{color:var(--stop)}}.status.revived{{color:var(--revive)}}
+.status.unknown{{color:var(--amber)}}.prediction{{margin:12px 0 17px 92px;max-width:880px;
+font-family:Georgia,serif;color:var(--ink-soft)}}.route{{list-style:none;margin:0 0 0 92px;
+padding:0 0 20px;display:flex;position:relative}}.route:before{{content:"";position:absolute;
+left:7px;right:7px;top:8px;border-top:1px dashed var(--rule-dark)}}.route-step{{flex:1;min-width:120px;
+position:relative;padding:22px 14px 0 0}}.route-step:before{{content:"";position:absolute;top:2px;
+left:0;width:11px;height:11px;border:2px solid var(--ink);border-radius:50%;background:var(--paper)}}
+.route-step.done:before{{background:var(--ink)}}.route-step.terminal.alive:before{{background:var(--sea);
+border-color:var(--sea)}}.route-step.terminal.dead:before{{background:var(--stop);border-color:var(--stop)}}
+.route-step.terminal.revived:before{{background:var(--revive);border-color:var(--revive)}}
+.route-step.terminal.unknown:before{{background:var(--amber);border-color:var(--amber)}}
+.route-step b{{display:block;font-size:11px;text-transform:uppercase;letter-spacing:.06em}}
+.route-step span{{display:block;font-size:11px;color:var(--ink-soft)}}.voyage-foot{{display:grid;
+grid-template-columns:170px 1fr;gap:20px;margin-left:92px;padding:12px 0;border-top:1px dotted var(--rule);
+font-size:11px;color:var(--ink-soft)}}.voyage-foot b{{font:500 20px Georgia,serif;color:var(--ink)}}
+.sequence{{font:700 10px ui-monospace,monospace;text-align:right;text-transform:uppercase;
+letter-spacing:.04em}}.dossier{{margin-left:92px;border-top:1px dotted var(--rule)}}.dossier summary{{
+cursor:pointer;width:max-content;padding:11px 0;font-size:11px;font-weight:800;text-transform:uppercase;
+letter-spacing:.08em}}.dossier summary::marker{{color:var(--stop)}}.dossier-grid{{display:grid;
+grid-template-columns:minmax(240px,.75fr) minmax(0,1.25fr);gap:34px;padding:8px 0 26px}}.dossier h4{{
+font:800 10px ui-monospace,monospace;text-transform:uppercase;letter-spacing:.1em;margin:10px 0}}
+.dossier p,.dossier li{{font-size:12px;color:var(--ink-soft)}}.predicate{{display:block;
+padding:10px;background:var(--paper-deep);overflow-wrap:anywhere}}.evidence-list{{list-style:none;
+margin:0;padding:0}}.evidence-list li{{padding:7px 0;border-bottom:1px dotted var(--rule)}}
+.evidence-list span,.evidence-list code{{display:block;overflow-wrap:anywhere}}code{{font:10px/1.5
+ui-monospace,SFMono-Regular,Menlo,monospace}}.flow{{display:grid;grid-template-columns:1fr 1fr;
+gap:38px;margin:34px 0 52px}}.flow-chart{{border:1px solid var(--ink);background:rgba(255,253,246,.55);
+padding:25px}}.flow-chart h3{{font-size:27px;font-weight:500;margin:0 0 22px}}.flow-stage{{
+display:grid;grid-template-columns:112px 1fr 48px;align-items:center;gap:12px;margin:14px 0}}
+.flow-stage span{{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.06em}}
+.flow-stage i{{height:16px;display:block;background:var(--sea-pale);position:relative}}.flow-stage i:after{{
+content:"";position:absolute;left:0;top:0;bottom:0;width:var(--flow);background:var(--sea)}}
+.flow-stage strong{{font:500 20px Georgia,serif}}.flow-copy{{padding:24px 0;border-top:3px double var(--ink);
+border-bottom:3px double var(--ink)}}.flow-copy blockquote{{font:500 clamp(24px,3vw,43px)/1.1
+Georgia,serif;margin:0 0 20px}}.flow-copy p{{color:var(--ink-soft)}}.register{{margin-top:30px}}
+.register>details{{border-top:1px solid var(--ink);border-bottom:1px solid var(--ink)}}.register summary,
+.logbook summary{{cursor:pointer;padding:16px 0;display:flex;justify-content:space-between;gap:20px;
+font:700 12px ui-monospace,monospace;text-transform:uppercase;letter-spacing:.07em}}.scroll{{
+overflow:auto}}table{{width:100%;border-collapse:collapse;font-size:12px;background:rgba(255,253,246,.4)}}
+th,td{{text-align:left;padding:11px 13px;border-top:1px solid var(--rule);vertical-align:top}}
+th{{font:800 9px ui-monospace,monospace;text-transform:uppercase;letter-spacing:.09em}}
+.logbook{{margin-top:18px;border-bottom:1px solid var(--ink)}}.ship-log{{list-style:none;
+margin:0;padding:0;display:grid;grid-template-columns:repeat(2,1fr);border-top:1px solid var(--rule)}}
+.ship-log li{{display:grid;grid-template-columns:34px 42px 1fr 62px;gap:8px;padding:8px 10px;
+border-bottom:1px dotted var(--rule);font-size:10px}}.ship-log li:nth-child(odd){{
+border-right:1px solid var(--rule)}}.log-sequence,.log-time{{font-family:ui-monospace,monospace;
+color:var(--ink-soft)}}.ship-log strong{{font-size:10px}}footer{{display:flex;
+justify-content:space-between;gap:24px;margin-top:34px;padding-top:16px;border-top:3px double var(--ink);
+font-size:11px;color:var(--ink-soft)}}@media(max-width:1050px){{.briefing{{
+grid-template-columns:repeat(3,1fr)}}.briefing div:nth-child(3){{border-right:0}}.hero{{
+grid-template-columns:1fr}}.manifest{{max-width:660px}}.flow{{grid-template-columns:1fr}}}}
+@media(max-width:760px){{.masthead-inner{{padding:14px 18px;grid-template-columns:1fr auto}}
+.folio{{display:none}}.dateline{{font-size:8px}}.subnav nav{{justify-content:flex-start;padding:9px 18px;
+overflow:auto;flex-wrap:nowrap}}main{{padding:25px 18px 50px}}.hero{{gap:24px}}h1{{font-size:55px}}
+.briefing{{grid-template-columns:repeat(2,1fr)}}.briefing div:nth-child(3){{border-right:1px solid var(--rule)}}
+.briefing div:nth-child(even){{border-right:0}}.section-head{{grid-template-columns:1fr}}.section-head p:last-child{{
+border-left:0;border-top:1px solid var(--rule);padding:12px 0 0}}.voyage-head>div{{
+grid-template-columns:1fr}}.prediction,.route,.voyage-foot,.dossier{{margin-left:0}}.route{{display:grid;
+grid-template-columns:1fr 1fr}}.route:before{{display:none}}.route-step{{border-top:1px dashed var(--rule);
+padding:13px 8px 13px 23px}}.route-step:before{{top:14px}}.voyage-foot{{grid-template-columns:1fr}}
+.sequence{{text-align:left}}.dossier-grid{{grid-template-columns:1fr}}.ship-log{{grid-template-columns:1fr}}
+.ship-log li:nth-child(odd){{border-right:0}}footer{{flex-direction:column}}}}
+@media(max-width:430px){{h1{{font-size:47px}}.manifest-total{{grid-template-columns:1fr}}
+.manifest-total div+div{{border-left:0;border-top:1px solid var(--rule)}}.briefing{{grid-template-columns:1fr}}
+.briefing div{{border-right:0}}.route{{grid-template-columns:1fr}}}}
+@media(prefers-reduced-motion:reduce){{html{{scroll-behavior:auto}}}}
+@media print{{.subnav,.skip{{display:none}}body{{background:white}}.dossier{{display:block}}
+.dossier>div{{display:grid}}}}
 </style>
 </head>
-<body><header class="topbar"><div class="brand"><span class="brand-mark">F</span>
-FLOTILLA</div><div class="topmeta"><span>research portfolio / allocation desk</span>
-<span class="ready">decisions recorded</span></div></header><main>
-<section class="hero"><div class="hero-copy"><p class="eyebrow">Thesis portfolio · Journey 0</p>
-<h1>Five theses. One budget.</h1><p class="lede">The cheapest falsifiers run first.
-Kills require executable evidence and operator confirmation; every decision remains reversible.</p>
-</div><aside class="budget-panel"><p class="section-label">Capital allocation</p>
-<div class="budget-total"><strong>{total_spend:.1f}</strong><span>budget units deployed</span></div>
+<body class="demo-page"><a class="skip" href="#simulator">Skip to interactive simulator</a>
+<header class="masthead"><div class="masthead-inner"><span class="folio">Portfolio record · No. 001</span>
+<div class="wordmark">FLOTILLA</div><span class="dateline">24 July 2026 · Journey 0</span>
+</div></header><div class="subnav"><nav aria-label="Report sections">
+<a href="../">Product</a><a href="#simulator">Simulator</a><a href="#capital">Capital allocation</a>
+<a href="#portfolio">Thesis trajectories</a>
+<a href="#lineage">Decision timeline</a></nav></div><main>
+<section class="hero" aria-labelledby="report-title"><div><p class="overline">Research portfolio memorandum</p>
+<h1 id="report-title">Five theses. One budget.</h1>
+<p class="deck">A falsifier-first strategy table for deciding what earns another experiment—and
+what returns its capital to the fleet.</p><p class="thesis">The model proposes. Executable
+predicates decide. Operators confirm every stop. Kills remain reversible, with the original
+evidence and lineage intact.</p></div>
+<aside class="manifest" id="capital" aria-labelledby="capital-title">
+<div class="manifest-head"><h2 id="capital-title">Capital allocation</h2>
+<span>12-unit mandate</span></div><div class="manifest-total">
+<div><strong>{total_spend:.1f}</strong><span>units deployed</span></div>
+<div><strong>{remaining:.1f}</strong><span>held in reserve</span></div></div>
 <div class="allocation" aria-label="Budget allocation by thesis">{allocation_segments}</div>
-<div class="legend"><span class="survivor">survivor allocation</span>
-<span class="killed">stopped allocation</span></div></aside></section>
-<section class="metrics">
-  <div class="metric"><strong>{len(thesis_rows)}</strong><span>theses under test</span></div>
-  <div class="metric"><strong>{len(decisions)}</strong><span>deterministic decisions</span></div>
-  <div class="metric"><strong>{undetermined}</strong><span>undetermined decisions</span></div>
-</section>
-<div class="section-head"><div><p class="section-label">Conviction board</p>
-<h2>Portfolio state</h2></div><p>Fixture evidence · not scientific validation</p></div>
-<section class="thesis-grid">{thesis_cards}</section>
-<section class="panel"><div class="panel-head"><h2>Decision register</h2>
-<span>predicate + spend + disposition</span></div><div class="scroll"><table>
-<thead><tr><th>ID</th><th>Thesis</th><th>Status</th><th>Spend</th><th>Kill predicate</th></tr></thead>
-<tbody>{thesis_html}</tbody></table></div></section>
-<section class="panel"><div class="panel-head"><h2>Decision timeline</h2>
-<span>append-only lineage</span></div><div class="scroll"><table>
-<thead><tr><th>#</th><th>Logical time</th><th>Event</th><th>Scope</th></tr></thead>
-<tbody>{event_html}</tbody></table></div></section>
-<footer class="note"><span>Generated by <code>make demo</code>.</span>
-<span>SQLite and Markdown kill reports retain complete evidence and lineage.</span></footer>
-</main></body></html>
+<ol class="capital-list">{capital_rows}</ol>
+<p class="manifest-note">{released:.1f} units of unused thesis capacity released after confirmed
+stops. Allocation reflects actual ledger spend, not initial caps.</p></aside></section>
+<section class="briefing" aria-label="Portfolio summary">
+<div><strong>{len(thesis_rows)}</strong><span>Theses charted</span></div>
+<div><strong>{len(runs)}</strong><span>Runs completed</span></div>
+<div><strong>{statuses['SURVIVED']}</strong><span>Courses retained</span></div>
+<div><strong>{statuses['KILLED']}</strong><span>Stops confirmed</span></div>
+<div><strong>{len(decisions)}</strong><span>Decisions recorded</span></div>
+<div><strong>{undetermined}</strong><span>Undetermined</span></div></section>
+<section class="simulator" id="simulator" aria-labelledby="simulator-title">
+<div class="simulator-heading"><div><p class="section-kicker">Deterministic browser lab</p>
+<h2 id="simulator-title">Interactive strategy simulator</h2></div>
+<p>Temporary in-memory data only. Choose conditions, set the mandate, launch the
+falsifier fleet, step experiments, adjudicate stops, reallocate reserve, and inspect
+the lineage. Reset returns to the registered fixture.</p></div>
+<div class="simulator-grid"><form class="sim-controls" aria-label="Simulation controls"
+onsubmit="return false"><label for="scenario-select">Scenario</label>
+<select id="scenario-select"><option value="registered">Registered outcome</option>
+<option value="headwinds">Replication headwinds</option>
+<option value="recovery">Signal recovery</option>
+<option value="thin">Thin evidence</option></select>
+<label for="thesis-select">Selected thesis</label><select id="thesis-select">
+{thesis_options}</select><label for="budget-control">Portfolio mandate
+<output id="budget-output" for="budget-control">{portfolio_budget:.1f} units</output></label>
+<input id="budget-control" type="range" min="5" max="20" step="1"
+value="{portfolio_budget:.0f}"><div class="control-group">
+<button id="launch-button" type="button">Launch falsifiers</button>
+<button id="step-button" type="button" disabled>Advance one experiment</button></div>
+<div class="control-group secondary"><button id="kill-button" type="button" disabled>
+Confirm stop</button><button id="challenge-button" type="button" disabled>
+Overturn stop</button><button id="revive-button" type="button" disabled>Revive thesis</button>
+</div><div class="control-group secondary"><button id="reallocate-button" type="button">
+Reallocate 1 unit</button><button id="reset-button" type="button">Reset</button></div>
+<p class="sim-status" id="sim-status" role="status" aria-live="polite">
+Ready to launch five equal-cost falsifiers.</p></form>
+<div class="sim-workspace"><section class="sim-panel" aria-labelledby="trajectory-title">
+<div class="sim-panel-head"><h3 id="trajectory-title">Evolving thesis trajectories</h3>
+<span id="sim-clock">Round 0</span></div><div id="trajectory-graph" class="trajectory-graph"
+role="img" aria-label="Current progress of all thesis experiments">
+<p class="js-fallback">Enable JavaScript to operate the simulator. The registered
+ledger remains fully readable below.</p></div></section>
+<section class="sim-panel" aria-labelledby="allocation-title"><div class="sim-panel-head">
+<h3 id="allocation-title">Live capital chart</h3><span id="reserve-readout">
+{remaining:.1f} reserve</span></div><div id="allocation-graph" class="allocation-graph"
+role="img" aria-label="Current portfolio spend, earmarks, and reserve"></div></section></div>
+<aside class="evidence-drawer" id="evidence-drawer" aria-labelledby="evidence-title">
+<p class="section-kicker">Evidence drawer</p><h3 id="evidence-title">
+{html.escape(first_thesis['id'])} · {html.escape(first_thesis['title'])}</h3>
+<p>{html.escape(first_thesis['prediction'])}</p><code>
+{html.escape(first_thesis['predicate'])}</code>
+<div id="evidence-body"><p>Select a thesis to inspect registered evidence and live
+decision state.</p></div></aside></div>
+<section class="sim-lineage" aria-labelledby="sim-lineage-title"><div>
+<p class="section-kicker">Temporary event stream</p><h3 id="sim-lineage-title">
+Simulation lineage</h3></div><ol id="interactive-lineage" aria-live="polite">
+<li><span>00</span><strong>Simulator ready</strong><em>Awaiting launch</em></li></ol></section>
+<noscript><p class="noscript">The interactive simulator needs JavaScript; every registered
+result and append-only event is still available in the static evidence sections below.</p>
+</noscript></section>
+<section id="portfolio"><div class="section-head"><div><p class="section-kicker">Strategy table</p>
+<h2>Thesis trajectories</h2></div><p>Each course begins with the same one-unit falsifier.
+Survivors receive follow-up capital; stopped theses retain their evidence and a route to revival.</p>
+</div><div class="strategy-table">{''.join(voyage_cards)}</div></section>
+<section class="flow" aria-labelledby="flow-title"><div class="flow-chart"><p class="section-kicker">
+Capital flow</p><h3 id="flow-title">From fair floor to concentrated follow-up</h3>
+<div class="flow-stage"><span>Falsifiers</span><i style="--flow:{falsifier_spend / portfolio_budget * 100 if portfolio_budget else 0:.2f}%"></i>
+<strong>{falsifier_spend:.1f}</strong></div>
+<div class="flow-stage"><span>Follow-ups</span><i style="--flow:{followup_spend / portfolio_budget * 100 if portfolio_budget else 0:.2f}%"></i>
+<strong>{followup_spend:.1f}</strong></div>
+<div class="flow-stage"><span>Reserve</span><i style="--flow:{remaining / portfolio_budget * 100 if portfolio_budget else 0:.2f}%"></i>
+<strong>{remaining:.1f}</strong></div></div><div class="flow-copy">
+<blockquote>“Test broadly for one unit. Concentrate only after a thesis survives contact with evidence.”</blockquote>
+<p>The first five units fund one falsifier per thesis. Six more fund three registered
+follow-ups. One remains uncommitted. This fixture illustrates the allocation mechanism;
+it is not scientific validation.</p></div></section>
+<section class="register" id="lineage"><p class="section-kicker">Append-only evidence</p>
+<h2>Decision register</h2><details><summary><span>Open thesis register</span>
+<span>{len(thesis_rows)} entries · predicate + spend + disposition</span></summary>
+<div class="scroll"><table><thead><tr><th>ID</th><th>Thesis</th><th>Status</th>
+<th>Spend / cap</th><th>Kill predicate</th></tr></thead><tbody>{thesis_html}</tbody>
+</table></div></details><details class="logbook"><summary><span>Decision timeline</span>
+<span>{len(events)} append-only events</span></summary><ol class="ship-log">{event_html}</ol>
+</details></section><footer><span>Generated by <code>make demo</code> from the SQLite ledger.</span>
+<span>Markdown kill reports preserve argued evidence; REVIVE appends rather than erases.</span>
+</footer></main><script type="application/json" id="flotilla-snapshot">{snapshot_json}</script>
+<script src="../assets/flotilla-demo.js" defer></script></body></html>
 """
     target = Path(output)
     target.parent.mkdir(parents=True, exist_ok=True)

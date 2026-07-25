@@ -10,6 +10,9 @@ This repository is an honest local MVP.
 - Falsifier-first shared-budget accounting with SQLite lineage.
 - Local paired-measurement execution, notebook job emission, kill reports,
   revival events, and a static dashboard.
+- A complete static product site plus a deterministic in-browser strategy
+  simulator for scenario selection, budget controls, experiment stepping,
+  capital earmarking, kill/overturn/revive decisions, evidence, and lineage.
 - An explicit `UNDETERMINED` decision when predicate evidence is absent.
 
 ## Not yet demonstrated
@@ -29,7 +32,9 @@ This repository is an honest local MVP.
   not the later budgeted-bandit policy described for v0.3.
 - The SQLite backend is single-process and single-machine. There is no
   distributed claim or transaction coordinator.
+- Browser simulator state is temporary and deliberately does not mutate the
+  registered SQLite ledger. It demonstrates interaction and governance paths,
+  not a hosted multi-user control plane.
 
 The dashboard labels fixture-derived results and must not be presented as a
 scientific validation of the example theses.
-
